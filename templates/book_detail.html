@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ book.title }} — Gilded Library{% endblock %}
+{% block content %}
+
+<div class="book-detail">
+    <div class="detail-header">
+        <h1>{{ book.title }}</h1>
+        <p class="detail-author">作者: {{ book.author }}</p>
+    </div>
+
+    <div class="detail-meta">
+        <div class="meta-item"><label>ISBN</label><span>{{ book.isbn or '暂无' }}</span></div>
+        <div class="meta-item"><label>出版日期</label><span>{{ book.published_date or '未知' }}</span></div>
+        <div class="meta-item"><label>分类</label><span>{{ book.category_name or '未分类' }}</span></div>
+        <div class="meta-item"><label>在馆副本</label>
+            <span class="{% if book.available_copies > 0 %}text-green{% else %}text-red{% endif %}">
+                {{ book.available_copies }} / {{ book.total_copies }}
+            </span>
+        </div>
+        <div class="meta-item"><label>评分</label><span>{{ book.avg_rating }} / 5 ({{ book.review_count }} 评)</span></div>
+    </div>
+
+    <div class="detail-desc">
+        <h3>图书简介</h3>
+        <p>{{ book.description or '暂无简介' }}</p>
+    </div>
+
+    {% if session.user_id and session.role == 'reader' %}
+    <div class="detail-actions">
+        {% if book.available_copies > 0 %}
+            <button class="btn btn-primary" onclick="borrowBook({{ book.book_id }})">借阅此书</button>
+        {% elif can_reserve %}
+            <button class="btn btn-secondary" onclick="reserveBook({{ book.book_id }})">预约此书</button>
+        {% elif has_reserved %}
+            <span class="badge badge-info">已预约</span>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Reviews Section -->
+<div class="review-section">
+    <h2>读者评论 ({{ reviews|length }})</h2>
+
+    {% if can_review %}
+    <div class="review-form">
+        <h3>发表评论</h3>
+        <form id="reviewForm" onsubmit="submitReview(event, {{ book.book_id }})">
+            <div class="form-group">
+                <label>评分</label>
+                <div class="star-rating">
+                    {% for i in range(5, 0, -1) %}
+                    <input type="radio" name="rating" value="{{ i }}" id="star{{ i }}" required>
+                    <label for="star{{ i }}">&#9733;</label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="form-group">
+                <label>评论内容</label>
+                <textarea name="comment" rows="3" placeholder="分享您的阅读感受..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">发表评论</button>
+        </form>
+    </div>
+    {% elif session.user_id and has_reviewed %}
+        <p class="info-msg">您已评论过此书</p>
+    {% endif %}
+
+    <div class="review-list">
+        {% for r in reviews %}
+        <div class="review-item">
+            <div class="review-header">
+                <strong>{{ r.username }}</strong>
+                <span class="stars">{% for _ in range(r.rating) %}&#9733;{% endfor %}{% for _ in range(5 - r.rating) %}&#9734;{% endfor %}</span>
+                <span class="review-date">{{ r.created_at }}</span>
+            </div>
+            <p class="review-comment">{{ r.comment }}</p>
+        </div>
+        {% else %}
+        <p class="empty">暂无评论</p>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function borrowBook(bookId) {
+    const resp = await fetch('/api/borrow/' + bookId, { method: 'POST' });
+    const data = await resp.json();
+    if (data.message) { showToast(data.message, 'success'); setTimeout(function(){ location.reload(); }, 800); }
+    else { showToast(data.error, 'error'); }
+}
+
+async function reserveBook(bookId) {
+    const resp = await fetch('/api/reserve/' + bookId, { method: 'POST' });
+    const data = await resp.json();
+    if (data.message) { showToast(data.message, 'success'); setTimeout(function(){ location.reload(); }, 800); }
+    else { showToast(data.error, 'error'); }
+}
+
+async function submitReview(e, bookId) {
+    e.preventDefault();
+    const form = document.getElementById('reviewForm');
+    const formData = new FormData(form);
+    const resp = await fetch('/review/' + bookId, {
+        method: 'POST',
+        body: formData
+    });
+    const data = await resp.json();
+    if (data.message) { showToast(data.message, 'success'); setTimeout(function(){ location.reload(); }, 800); }
+    else { showToast(data.error, 'error'); }
+}
+</script>
+{% endblock %}

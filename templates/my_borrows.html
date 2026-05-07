@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}我的借阅 — Gilded Library{% endblock %}
+{% block content %}
+
+<h1 class="page-title">我的借阅记录</h1>
+
+{% if records %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>书名</th>
+            <th>作者</th>
+            <th>借阅日期</th>
+            <th>应还日期</th>
+            <th>归还日期</th>
+            <th>状态</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in records %}
+        <tr>
+            <td><a href="{{ url_for('book_detail', book_id=r.book_id) }}">{{ r.title }}</a></td>
+            <td>{{ r.author }}</td>
+            <td>{{ r.borrow_date }}</td>
+            <td>{{ r.due_date }}</td>
+            <td>{{ r.return_date or '-' }}</td>
+            <td>
+                {% if r.current_status == '逾期' %}
+                    <span class="badge badge-danger">逾期</span>
+                {% elif r.status == '借出' %}
+                    <span class="badge badge-info">借出</span>
+                {% else %}
+                    <span class="badge badge-success">已还</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if r.status == '借出' %}
+                    <button class="btn btn-sm btn-primary" onclick="returnBook({{ r.record_id }})">归还</button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty">您还没有借阅记录</p>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function returnBook(recordId) {
+    if (!confirm('确认归还此书？')) return;
+    const resp = await fetch('/api/return/' + recordId, { method: 'POST' });
+    const data = await resp.json();
+    if (data.message) { showToast(data.message, 'success'); setTimeout(function(){ location.reload(); }, 800); }
+    else { showToast(data.error, 'error'); }
+}
+</script>
+{% endblock %}

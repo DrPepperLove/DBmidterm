@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}用户管理 — Gilded Library{% endblock %}
+{% block content %}
+
+<h1 class="page-title">用户管理</h1>
+
+<div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">概览</a>
+    <a href="{{ url_for('admin_users') }}" class="active">用户管理</a>
+    <a href="{{ url_for('admin_books') }}">图书管理</a>
+    <a href="{{ url_for('admin_categories') }}">分类管理</a>
+    <a href="{{ url_for('admin_borrows') }}">借阅记录</a>
+    <a href="{{ url_for('admin_reservations') }}">预约管理</a>
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>用户名</th>
+            <th>邮箱</th>
+            <th>角色</th>
+            <th>注册时间</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in users %}
+        <tr>
+            <td>{{ u.user_id }}</td>
+            <td>{{ u.username }}</td>
+            <td>{{ u.email or '-' }}</td>
+            <td>{{ '管理员' if u.role == 'admin' else '读者' }}</td>
+            <td>{{ u.created_at }}</td>
+            <td>
+                {% if u.role != 'admin' %}
+                <form method="POST" action="{{ url_for('admin_delete_user', user_id=u.user_id) }}"
+                      onsubmit="return confirm('确认删除该用户？')" style="display:inline">
+                    <button class="btn btn-sm btn-danger">删除</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

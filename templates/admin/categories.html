@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}分类管理 — Gilded Library{% endblock %}
+{% block content %}
+
+<h1 class="page-title">分类管理</h1>
+
+<div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">概览</a>
+    <a href="{{ url_for('admin_users') }}">用户管理</a>
+    <a href="{{ url_for('admin_books') }}">图书管理</a>
+    <a href="{{ url_for('admin_categories') }}" class="active">分类管理</a>
+    <a href="{{ url_for('admin_borrows') }}">借阅记录</a>
+    <a href="{{ url_for('admin_reservations') }}">预约管理</a>
+</div>
+
+<button class="btn btn-primary" onclick="document.getElementById('addCatForm').style.display='block'">添加分类</button>
+
+<div id="addCatForm" class="modal-form" style="display:none">
+    <h3>添加新分类</h3>
+    <form method="POST" action="{{ url_for('admin_add_category') }}">
+        <div class="form-group"><label>名称</label><input type="text" name="name" required></div>
+        <div class="form-group"><label>描述</label><input type="text" name="description"></div>
+        <button type="submit" class="btn btn-primary">添加</button>
+        <button type="button" class="btn" onclick="document.getElementById('addCatForm').style.display='none'">取消</button>
+    </form>
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr><th>ID</th><th>名称</th><th>描述</th><th>操作</th></tr>
+    </thead>
+    <tbody>
+        {% for c in categories %}
+        <tr>
+            <td>{{ c.category_id }}</td>
+            <td>{{ c.name }}</td>
+            <td>{{ c.description or '-' }}</td>
+            <td>
+                <button class="btn btn-sm" onclick="toggleCatEdit({{ c.category_id }})">编辑</button>
+                <form method="POST" action="{{ url_for('admin_delete_category', cat_id=c.category_id) }}"
+                      onsubmit="return confirm('确认删除？相关联的图书将被取消分类')" style="display:inline">
+                    <button class="btn btn-sm btn-danger">删除</button>
+                </form>
+                <div id="cat-edit-{{ c.category_id }}" class="modal-form" style="display:none">
+                    <h4>编辑分类</h4>
+                    <form method="POST" action="{{ url_for('admin_edit_category', cat_id=c.category_id) }}">
+                        <input type="text" name="name" value="{{ c.name }}" required>
+                        <input type="text" name="description" value="{{ c.description or '' }}">
+                        <button type="submit" class="btn btn-sm btn-primary">保存</button>
+                        <button type="button" class="btn btn-sm" onclick="toggleCatEdit({{ c.category_id }})">取消</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleCatEdit(id) {
+    const el = document.getElementById('cat-edit-' + id);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

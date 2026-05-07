@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}登录 — Gilded Library{% endblock %}
+{% block content %}
+
+<div class="form-container">
+    <h1>用户登录</h1>
+    {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+    <form method="POST">
+        <div class="form-group">
+            <label>用户名</label>
+            <input type="text" name="username" required autocomplete="username">
+        </div>
+        <div class="form-group">
+            <label>密码</label>
+            <input type="password" name="password" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%">登录</button>
+    </form>
+    <p class="form-footer">还没有账号？<a href="{{ url_for('register_page') }}">立即注册</a></p>
+
+    <div class="demo-info">
+        <p><strong>演示账号</strong></p>
+        <p>管理员: admin / 123456</p>
+        <p>读者: reader1 / 123456</p>
+    </div>
+</div>
+
+{% endblock %}

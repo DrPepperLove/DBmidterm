@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}图书浏览 — Gilded Library{% endblock %}
+{% block content %}
+
+<h1 class="page-title">图书浏览</h1>
+
+<div class="filter-bar">
+    <div class="filter-categories">
+        <a href="{{ url_for('books_page') }}" class="{% if not current_category %}active{% endif %}">全部</a>
+        {% for c in categories %}
+        <a href="{{ url_for('books_page', category=c.category_id) }}"
+           class="{% if current_category|string == c.category_id|string %}active{% endif %}">
+            {{ c.name }}
+        </a>
+        {% endfor %}
+    </div>
+    <form action="{{ url_for('books_page') }}" method="GET" class="search-inline">
+        <input type="text" name="keyword" placeholder="搜索书名或作者..." value="{{ keyword or '' }}">
+        <button type="submit" class="btn btn-sm btn-primary">搜索</button>
+    </form>
+</div>
+
+<div class="book-list">
+    {% if books %}
+        {% for b in books %}
+        <div class="book-item">
+            <div class="book-info">
+                <h3><a href="{{ url_for('book_detail', book_id=b.book_id) }}">{{ b.title }}</a></h3>
+                <p>作者: {{ b.author }} &nbsp;|&nbsp; ISBN: {{ b.isbn or '暂无' }}</p>
+                <p>分类: {{ b.category_name or '未分类' }} &nbsp;|&nbsp; 出版日期: {{ b.published_date or '未知' }}</p>
+                <p>
+                    评分: {{ b.avg_rating }} / 5 ({{ b.review_count }} 条评论)
+                    &nbsp;|&nbsp; 在馆: <strong>{{ b.available_copies }}</strong> / {{ b.total_copies }} 册
+                </p>
+            </div>
+            <div class="book-action">
+                {% if b.available_copies > 0 %}
+                    <span class="badge badge-available">可借</span>
+                {% else %}
+                    <span class="badge badge-unavailable">已借完</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="empty">暂无符合条件的图书</p>
+    {% endif %}
+</div>
+
+{% endblock %}

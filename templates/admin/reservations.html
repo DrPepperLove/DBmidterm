@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}预约管理 — Gilded Library{% endblock %}
+{% block content %}
+
+<h1 class="page-title">预约管理</h1>
+
+<div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">概览</a>
+    <a href="{{ url_for('admin_users') }}">用户管理</a>
+    <a href="{{ url_for('admin_books') }}">图书管理</a>
+    <a href="{{ url_for('admin_categories') }}">分类管理</a>
+    <a href="{{ url_for('admin_borrows') }}">借阅记录</a>
+    <a href="{{ url_for('admin_reservations') }}" class="active">预约管理</a>
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ID</th><th>用户</th><th>书名</th><th>预约日期</th><th>状态</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in reservations %}
+        <tr>
+            <td>{{ r.reservation_id }}</td>
+            <td>{{ r.username }}</td>
+            <td>{{ r.book_title }}</td>
+            <td>{{ r.reserve_date }}</td>
+            <td>
+                {% if r.status == '待处理' %}
+                    <span class="badge badge-info">待处理</span>
+                {% elif r.status == '可借' %}
+                    <span class="badge badge-success">可借</span>
+                {% else %}
+                    <span class="badge badge-muted">已取消</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

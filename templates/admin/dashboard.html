@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}管理后台 — Gilded Library{% endblock %}
+{% block content %}
+
+<h1 class="page-title">管理后台</h1>
+
+<div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}" class="active">概览</a>
+    <a href="{{ url_for('admin_users') }}">用户管理</a>
+    <a href="{{ url_for('admin_books') }}">图书管理</a>
+    <a href="{{ url_for('admin_categories') }}">分类管理</a>
+    <a href="{{ url_for('admin_borrows') }}">借阅记录</a>
+    <a href="{{ url_for('admin_reservations') }}">预约管理</a>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-number">{{ stats.total_users }}</div>
+        <div class="stat-label">用户总数</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ stats.total_books }}</div>
+        <div class="stat-label">图书总数</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ stats.total_categories }}</div>
+        <div class="stat-label">分类数量</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ stats.active_borrows }}</div>
+        <div class="stat-label">当前借出</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ stats.pending_reservations }}</div>
+        <div class="stat-label">待处理预约</div>
+    </div>
+</div>
+
+<h2 class="page-title" style="font-size:1.3em">逾期未还图书</h2>
+{% if overdue %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>用户名</th>
+            <th>邮箱</th>
+            <th>书名</th>
+            <th>借阅日期</th>
+            <th>应还日期</th>
+            <th>逾期天数</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in overdue %}
+        <tr>
+            <td>{{ r.username }}</td>
+            <td>{{ r.email }}</td>
+            <td>{{ r.title }}</td>
+            <td>{{ r.borrow_date }}</td>
+            <td>{{ r.due_date }}</td>
+            <td><span class="badge badge-danger">{{ r.overdue_days }} 天</span></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty">当前没有逾期记录</p>
+{% endif %}
+
+{% endblock %}

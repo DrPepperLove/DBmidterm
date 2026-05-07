@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}借阅记录管理 — Gilded Library{% endblock %}
+{% block content %}
+
+<h1 class="page-title">借阅记录管理</h1>
+
+<div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">概览</a>
+    <a href="{{ url_for('admin_users') }}">用户管理</a>
+    <a href="{{ url_for('admin_books') }}">图书管理</a>
+    <a href="{{ url_for('admin_categories') }}">分类管理</a>
+    <a href="{{ url_for('admin_borrows') }}" class="active">借阅记录</a>
+    <a href="{{ url_for('admin_reservations') }}">预约管理</a>
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ID</th><th>用户</th><th>书名</th><th>借阅日期</th>
+            <th>应还日期</th><th>归还日期</th><th>状态</th><th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in records %}
+        <tr>
+            <td>{{ r.record_id }}</td>
+            <td>{{ r.username }}</td>
+            <td>{{ r.book_title }}</td>
+            <td>{{ r.borrow_date }}</td>
+            <td>{{ r.due_date }}</td>
+            <td>{{ r.return_date or '-' }}</td>
+            <td>
+                {% if r.is_overdue %}
+                    <span class="badge badge-danger">逾期</span>
+                {% elif r.status == '借出' %}
+                    <span class="badge badge-info">借出</span>
+                {% else %}
+                    <span class="badge badge-success">已还</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if r.status == '借出' %}
+                <form method="POST" action="{{ url_for('admin_force_return', record_id=r.record_id) }}"
+                      onsubmit="return confirm('强制归还？')" style="display:inline">
+                    <button class="btn btn-sm btn-warning">强制归还</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

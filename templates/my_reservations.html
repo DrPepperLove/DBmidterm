@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}我的预约 — Gilded Library{% endblock %}
+{% block content %}
+
+<h1 class="page-title">我的预约记录</h1>
+
+{% if reservations %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>书名</th>
+            <th>作者</th>
+            <th>预约日期</th>
+            <th>状态</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in reservations %}
+        <tr>
+            <td><a href="{{ url_for('book_detail', book_id=r.book_id) }}">{{ r.title }}</a></td>
+            <td>{{ r.author }}</td>
+            <td>{{ r.reserve_date }}</td>
+            <td>
+                {% if r.status == '待处理' %}
+                    <span class="badge badge-info">待处理</span>
+                {% elif r.status == '可借' %}
+                    <span class="badge badge-success">可借</span>
+                {% else %}
+                    <span class="badge badge-muted">已取消</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if r.status == '待处理' %}
+                    <button class="btn btn-sm btn-danger"
+                            onclick="cancelReservation({{ r.reservation_id }})">取消预约</button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty">您还没有预约记录</p>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function cancelReservation(resId) {
+    if (!confirm('确认取消预约？')) return;
+    const resp = await fetch('/api/cancel-reservation/' + resId, { method: 'POST' });
+    const data = await resp.json();
+    if (data.message) { showToast(data.message, 'success'); setTimeout(function(){ location.reload(); }, 800); }
+    else { showToast(data.error, 'error'); }
+}
+</script>
+{% endblock %}
