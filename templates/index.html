@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Gilded Library — 首页{% endblock %}
+{% block title %}墨香书院 — 首页{% endblock %}
 {% block content %}
 
 <section class="hero">
-    <h1>Gilded Library</h1>
+    <h1>墨香书院</h1>
     <p>在静谧中探索知识，于书页间发现世界</p>
     <form action="{{ url_for('books_page') }}" method="GET" class="search-form">
         <input type="text" name="keyword" placeholder="搜索书名或作者...">

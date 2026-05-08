@@ -1,5 +1,5 @@
 /**
- * Gilded Library — Main JavaScript
+ * 墨香书院 — Main JavaScript
  * Toast notifications, page-load reveals, confirmation dialogs, form handling.
  */
 
