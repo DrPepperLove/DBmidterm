@@ -10,6 +10,23 @@ import pyodbc
 from config import DB_SERVER, DB_NAME
 
 
+class _DictCursor:
+    """Wrap a pyodbc cursor so fetchone/fetchall return dicts keyed by column name."""
+
+    def __init__(self, cursor):
+        self._cursor = cursor
+        self._columns = [d[0] for d in cursor.description] if cursor.description else []
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        if row is None:
+            return None
+        return dict(zip(self._columns, row))
+
+    def fetchall(self):
+        return [dict(zip(self._columns, r)) for r in self._cursor.fetchall()]
+
+
 class Database:
     """Data-access layer wrapping a single pyodbc connection."""
 
@@ -22,7 +39,7 @@ class Database:
             cursor.execute(sql, params)
         else:
             cursor.execute(sql)
-        return cursor
+        return _DictCursor(cursor)
 
     # -- Transaction helpers -------------------------------------------
 
@@ -69,7 +86,7 @@ class Database:
         self.conn.commit()
 
     def count_users(self) -> int:
-        return self._execute("SELECT COUNT(*) FROM [user]").fetchone()[0]
+        return self._execute("SELECT COUNT(*) AS cnt FROM [user]").fetchone()["cnt"]
 
     # -- Category -----------------------------------------------------
 
@@ -99,7 +116,7 @@ class Database:
         self.conn.commit()
 
     def count_categories(self) -> int:
-        return self._execute("SELECT COUNT(*) FROM category").fetchone()[0]
+        return self._execute("SELECT COUNT(*) AS cnt FROM category").fetchone()["cnt"]
 
     # -- Book ---------------------------------------------------------
 
@@ -206,7 +223,7 @@ class Database:
         self.conn.commit()
 
     def count_books(self) -> int:
-        return self._execute("SELECT COUNT(*) FROM book").fetchone()[0]
+        return self._execute("SELECT COUNT(*) AS cnt FROM book").fetchone()["cnt"]
 
     # -- Borrow -------------------------------------------------------
 
@@ -255,8 +272,8 @@ class Database:
 
     def count_active_borrows(self) -> int:
         return self._execute(
-            "SELECT COUNT(*) FROM borrow_record WHERE status = N'借出'"
-        ).fetchone()[0]
+            "SELECT COUNT(*) AS cnt FROM borrow_record WHERE status = N'借出'"
+        ).fetchone()["cnt"]
 
     def get_overdue_borrows(self):
         return self._execute(
@@ -425,8 +442,8 @@ class Database:
 
     def count_pending_reservations(self) -> int:
         return self._execute(
-            "SELECT COUNT(*) FROM reservation WHERE status = N'待处理'"
-        ).fetchone()[0]
+            "SELECT COUNT(*) AS cnt FROM reservation WHERE status = N'待处理'"
+        ).fetchone()["cnt"]
 
     def create_reservation(self, user_id: int, book_id: int):
         self._execute(

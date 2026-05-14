@@ -153,7 +153,9 @@ def init_db():
         FROM borrow_record br
         JOIN [user] u ON br.user_id = u.user_id
         JOIN book b ON br.book_id = b.book_id;
+    """)
 
+    cursor.execute("""
         CREATE VIEW view_book_rating AS
         SELECT b.book_id, b.title, b.author,
                ROUND(CAST(AVG(CAST(r.rating AS FLOAT)) AS FLOAT), 1) AS avg_rating,
