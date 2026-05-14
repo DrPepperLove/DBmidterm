@@ -308,8 +308,6 @@ class Database:
         due_date = date.today() + timedelta(days=30)
 
         try:
-            self.begin()
-
             book = self._execute(
                 "SELECT available_copies FROM book WHERE book_id = ?",
                 (book_id,),
@@ -335,7 +333,7 @@ class Database:
                     "WHERE book_id = ?",
                     (book_id,),
                 )
-                self.commit()
+                self.conn.commit()
                 return True, "借阅成功", due_date.isoformat()
             else:
                 self.rollback()
@@ -354,8 +352,6 @@ class Database:
             return False, "此书已归还"
 
         try:
-            self.begin()
-
             self._execute(
                 """
                 UPDATE borrow_record
@@ -371,7 +367,7 @@ class Database:
                 (record["book_id"],),
             )
 
-            self.commit()
+            self.conn.commit()
 
             # Check for pending reservation
             reservation = self.get_next_pending_reservation(record["book_id"])
