@@ -1,99 +1,110 @@
 """Database abstraction layer for the Online Book Management System.
 
-Encapsulates all SQLite operations behind a clean API, organized by domain entity.
+Encapsulates all SQL Server operations behind a clean API, organized by domain entity.
 """
 
-import sqlite3
 from datetime import date, timedelta
+
+import pyodbc
+
+from config import DB_SERVER, DB_NAME
 
 
 class Database:
-    """Data-access layer wrapping a single SQLite connection."""
+    """Data-access layer wrapping a single pyodbc connection."""
 
-    def __init__(self, conn: sqlite3.Connection):
+    def __init__(self, conn: pyodbc.Connection):
         self.conn = conn
 
-    # ── Transaction helpers ───────────────────────────────────────────────
+    def _execute(self, sql: str, params=None):
+        cursor = self.conn.cursor()
+        if params is not None:
+            cursor.execute(sql, params)
+        else:
+            cursor.execute(sql)
+        return cursor
+
+    # -- Transaction helpers -------------------------------------------
 
     def begin(self):
-        self.conn.execute("BEGIN EXCLUSIVE TRANSACTION")
+        self._execute("BEGIN TRANSACTION")
 
     def commit(self):
         self.conn.commit()
 
     def rollback(self):
-        self.conn.execute("ROLLBACK")
+        self.conn.rollback()
 
-    # ── User ──────────────────────────────────────────────────────────────
+    # -- User ---------------------------------------------------------
 
     def get_user_by_credentials(self, username: str, password_hash: str):
-        return self.conn.execute(
-            "SELECT * FROM user WHERE username = ? AND password = ?",
+        return self._execute(
+            "SELECT * FROM [user] WHERE username = ? AND password = ?",
             (username, password_hash),
         ).fetchone()
 
     def get_user_by_username(self, username: str):
-        return self.conn.execute(
-            "SELECT user_id FROM user WHERE username = ?", (username,)
+        return self._execute(
+            "SELECT user_id FROM [user] WHERE username = ?", (username,)
         ).fetchone()
 
     def create_user(
         self, username: str, password_hash: str, email: str, role: str = "reader"
     ):
-        self.conn.execute(
-            "INSERT INTO user (username, password, email, role) VALUES (?,?,?,?)",
+        self._execute(
+            "INSERT INTO [user] (username, password, email, role) VALUES (?,?,?,?)",
             (username, password_hash, email, role),
         )
         self.conn.commit()
 
     def get_all_users(self):
-        return self.conn.execute(
-            "SELECT * FROM user ORDER BY created_at DESC"
+        return self._execute(
+            "SELECT * FROM [user] ORDER BY created_at DESC"
         ).fetchall()
 
     def delete_user(self, user_id: int):
-        self.conn.execute(
-            "DELETE FROM user WHERE user_id = ? AND role != 'admin'", (user_id,)
+        self._execute(
+            "DELETE FROM [user] WHERE user_id = ? AND role != 'admin'", (user_id,)
         )
         self.conn.commit()
 
     def count_users(self) -> int:
-        return self.conn.execute("SELECT COUNT(*) FROM user").fetchone()[0]
+        return self._execute("SELECT COUNT(*) FROM [user]").fetchone()[0]
 
-    # ── Category ──────────────────────────────────────────────────────────
+    # -- Category -----------------------------------------------------
 
     def get_all_categories(self):
-        return self.conn.execute(
+        return self._execute(
             "SELECT * FROM category ORDER BY category_id"
         ).fetchall()
 
     def create_category(self, name: str, description: str):
-        self.conn.execute(
+        self._execute(
             "INSERT INTO category (name, description) VALUES (?, ?)",
             (name, description),
         )
         self.conn.commit()
 
     def update_category(self, category_id: int, name: str, description: str):
-        self.conn.execute(
+        self._execute(
             "UPDATE category SET name=?, description=? WHERE category_id=?",
             (name, description, category_id),
         )
         self.conn.commit()
 
     def delete_category(self, category_id: int):
-        self.conn.execute(
+        self._execute(
             "DELETE FROM category WHERE category_id = ?", (category_id,)
         )
         self.conn.commit()
 
     def count_categories(self) -> int:
-        return self.conn.execute("SELECT COUNT(*) FROM category").fetchone()[0]
+        return self._execute("SELECT COUNT(*) FROM category").fetchone()[0]
 
-    # ── Book ──────────────────────────────────────────────────────────────
+    # -- Book ---------------------------------------------------------
 
     def get_book(self, book_id: int):
-        return self.conn.execute(
+        return self._execute(
             """
             SELECT b.*, c.name AS category_name,
                    COALESCE(vr.avg_rating, 0) AS avg_rating,
@@ -127,31 +138,23 @@ class Database:
 
         query += " ORDER BY b.book_id DESC"
 
-        return self.conn.execute(query, params).fetchall()
+        return self._execute(query, params).fetchall()
 
     def get_popular_books(self, limit: int = 5):
-        return self.conn.execute(
-            """
-            SELECT b.book_id, b.title, b.author,
+        return self._execute(f"""
+            SELECT TOP {limit} b.book_id, b.title, b.author,
                    COUNT(br.record_id) AS borrow_count
             FROM book b
             LEFT JOIN borrow_record br ON b.book_id = br.book_id
             GROUP BY b.book_id, b.title, b.author
             ORDER BY borrow_count DESC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
+        """).fetchall()
 
     def get_top_rated_books(self, limit: int = 6):
-        return self.conn.execute(
-            """
-            SELECT * FROM view_book_rating
+        return self._execute(f"""
+            SELECT TOP {limit} * FROM view_book_rating
             ORDER BY avg_rating DESC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
+        """).fetchall()
 
     def create_book(
         self,
@@ -163,21 +166,15 @@ class Database:
         description: str,
         category_id: int | None,
     ):
-        self.conn.execute(
+        self._execute(
             """
             INSERT INTO book (title, author, isbn, published_date, total_copies,
                               available_copies, description, category_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                title,
-                author,
-                isbn,
-                published_date,
-                total_copies,
-                total_copies,  # available_copies starts equal to total_copies
-                description,
-                category_id,
+                title, author, isbn, published_date,
+                total_copies, total_copies, description, category_id,
             ),
         )
         self.conn.commit()
@@ -193,7 +190,7 @@ class Database:
         description: str,
         category_id: int | None,
     ):
-        self.conn.execute(
+        self._execute(
             """
             UPDATE book SET title=?, author=?, isbn=?, published_date=?,
             total_copies=?, description=?, category_id=?
@@ -205,34 +202,35 @@ class Database:
         self.conn.commit()
 
     def delete_book(self, book_id: int):
-        self.conn.execute("DELETE FROM book WHERE book_id = ?", (book_id,))
+        self._execute("DELETE FROM book WHERE book_id = ?", (book_id,))
         self.conn.commit()
 
     def count_books(self) -> int:
-        return self.conn.execute("SELECT COUNT(*) FROM book").fetchone()[0]
+        return self._execute("SELECT COUNT(*) FROM book").fetchone()[0]
 
-    # ── Borrow ────────────────────────────────────────────────────────────
+    # -- Borrow -------------------------------------------------------
 
     def get_active_borrow(self, user_id: int, book_id: int):
-        return self.conn.execute(
+        return self._execute(
             """
             SELECT record_id FROM borrow_record
-            WHERE user_id = ? AND book_id = ? AND status = '借出'
+            WHERE user_id = ? AND book_id = ? AND status = N'借出'
             """,
             (user_id, book_id),
         ).fetchone()
 
     def get_borrow_record(self, record_id: int):
-        return self.conn.execute(
+        return self._execute(
             "SELECT * FROM borrow_record WHERE record_id = ?", (record_id,)
         ).fetchone()
 
     def get_user_borrows(self, user_id: int):
-        return self.conn.execute(
+        return self._execute(
             """
             SELECT br.*, b.title, b.author,
-                   CASE WHEN br.return_date IS NULL AND br.due_date < DATE('now')
-                        THEN '逾期' ELSE br.status END AS current_status
+                   CASE WHEN br.return_date IS NULL
+                         AND br.due_date < CAST(GETDATE() AS DATE)
+                        THEN N'逾期' ELSE br.status END AS current_status
             FROM borrow_record br
             JOIN book b ON br.book_id = b.book_id
             WHERE br.user_id = ?
@@ -242,47 +240,47 @@ class Database:
         ).fetchall()
 
     def get_all_borrows(self):
-        return self.conn.execute(
+        return self._execute(
             """
             SELECT br.*, u.username, b.title AS book_title,
-                   CASE WHEN br.status = '借出' AND br.due_date < DATE('now')
+                   CASE WHEN br.status = N'借出'
+                         AND br.due_date < CAST(GETDATE() AS DATE)
                         THEN 1 ELSE 0 END AS is_overdue
             FROM borrow_record br
-            JOIN user u ON br.user_id = u.user_id
+            JOIN [user] u ON br.user_id = u.user_id
             JOIN book b ON br.book_id = b.book_id
             ORDER BY br.borrow_date DESC
             """
         ).fetchall()
 
     def count_active_borrows(self) -> int:
-        return self.conn.execute(
-            "SELECT COUNT(*) FROM borrow_record WHERE status = '借出'"
+        return self._execute(
+            "SELECT COUNT(*) FROM borrow_record WHERE status = N'借出'"
         ).fetchone()[0]
 
     def get_overdue_borrows(self):
-        return self.conn.execute(
+        return self._execute(
             """
             SELECT u.username, u.email, b.title, br.borrow_date, br.due_date,
-                   CAST(julianday('now') - julianday(br.due_date) AS INTEGER)
-                       AS overdue_days
+                   DATEDIFF(DAY, br.due_date, GETDATE()) AS overdue_days
             FROM borrow_record br
-            JOIN user u ON br.user_id = u.user_id
+            JOIN [user] u ON br.user_id = u.user_id
             JOIN book b ON br.book_id = b.book_id
-            WHERE br.status = '借出' AND br.due_date < DATE('now')
+            WHERE br.status = N'借出' AND br.due_date < CAST(GETDATE() AS DATE)
             ORDER BY overdue_days DESC
             """
         ).fetchall()
 
     def user_has_returned_book(self, user_id: int, book_id: int):
-        return self.conn.execute(
+        return self._execute(
             """
             SELECT record_id FROM borrow_record
-            WHERE user_id = ? AND book_id = ? AND status = '已还'
+            WHERE user_id = ? AND book_id = ? AND status = N'已还'
             """,
             (user_id, book_id),
         ).fetchone()
 
-    # ── Borrow / Return transactions ──────────────────────────────────────
+    # -- Borrow / Return transactions ---------------------------------
 
     def borrow_book(self, user_id: int, book_id: int):
         """Execute full borrow transaction. Returns (ok, message, due_date_str|None)."""
@@ -295,7 +293,7 @@ class Database:
         try:
             self.begin()
 
-            book = self.conn.execute(
+            book = self._execute(
                 "SELECT available_copies FROM book WHERE book_id = ?",
                 (book_id,),
             ).fetchone()
@@ -306,16 +304,16 @@ class Database:
 
             avail = book["available_copies"]
             if avail > 0:
-                self.conn.execute(
+                self._execute(
                     """
                     INSERT INTO borrow_record (user_id, book_id, borrow_date,
                                                due_date, status)
-                    VALUES (?, ?, ?, ?, '借出')
+                    VALUES (?, ?, ?, ?, N'借出')
                     """,
                     (user_id, book_id, date.today().isoformat(),
                      due_date.isoformat()),
                 )
-                self.conn.execute(
+                self._execute(
                     "UPDATE book SET available_copies = available_copies - 1 "
                     "WHERE book_id = ?",
                     (book_id,),
@@ -341,16 +339,16 @@ class Database:
         try:
             self.begin()
 
-            self.conn.execute(
+            self._execute(
                 """
                 UPDATE borrow_record
-                SET return_date = ?, status = '已还'
+                SET return_date = ?, status = N'已还'
                 WHERE record_id = ?
                 """,
                 (date.today().isoformat(), record_id),
             )
 
-            self.conn.execute(
+            self._execute(
                 "UPDATE book SET available_copies = available_copies + 1 "
                 "WHERE book_id = ?",
                 (record["book_id"],),
@@ -376,34 +374,34 @@ class Database:
         """Admin force-return a borrowed book."""
         record = self.get_borrow_record(record_id)
         if record and record["status"] == "借出":
-            self.conn.execute(
+            self._execute(
                 """
                 UPDATE borrow_record
-                SET return_date = ?, status = '已还'
+                SET return_date = ?, status = N'已还'
                 WHERE record_id = ?
                 """,
                 (date.today().isoformat(), record_id),
             )
-            self.conn.execute(
+            self._execute(
                 "UPDATE book SET available_copies = available_copies + 1 "
                 "WHERE book_id = ?",
                 (record["book_id"],),
             )
             self.conn.commit()
 
-    # ── Reservation ───────────────────────────────────────────────────────
+    # -- Reservation --------------------------------------------------
 
     def get_pending_reservation(self, user_id: int, book_id: int):
-        return self.conn.execute(
+        return self._execute(
             """
             SELECT reservation_id FROM reservation
-            WHERE user_id = ? AND book_id = ? AND status = '待处理'
+            WHERE user_id = ? AND book_id = ? AND status = N'待处理'
             """,
             (user_id, book_id),
         ).fetchone()
 
     def get_user_reservations(self, user_id: int):
-        return self.conn.execute(
+        return self._execute(
             """
             SELECT r.*, b.title, b.author
             FROM reservation r
@@ -415,35 +413,35 @@ class Database:
         ).fetchall()
 
     def get_all_reservations(self):
-        return self.conn.execute(
+        return self._execute(
             """
             SELECT r.*, u.username, b.title AS book_title
             FROM reservation r
-            JOIN user u ON r.user_id = u.user_id
+            JOIN [user] u ON r.user_id = u.user_id
             JOIN book b ON r.book_id = b.book_id
             ORDER BY r.reserve_date DESC
             """
         ).fetchall()
 
     def count_pending_reservations(self) -> int:
-        return self.conn.execute(
-            "SELECT COUNT(*) FROM reservation WHERE status = '待处理'"
+        return self._execute(
+            "SELECT COUNT(*) FROM reservation WHERE status = N'待处理'"
         ).fetchone()[0]
 
     def create_reservation(self, user_id: int, book_id: int):
-        self.conn.execute(
+        self._execute(
             """
             INSERT INTO reservation (user_id, book_id, reserve_date, status)
-            VALUES (?, ?, datetime('now', 'localtime'), '待处理')
+            VALUES (?, ?, GETDATE(), N'待处理')
             """,
             (user_id, book_id),
         )
         self.conn.commit()
 
     def cancel_reservation(self, reservation_id: int, user_id: int):
-        self.conn.execute(
+        self._execute(
             """
-            UPDATE reservation SET status = '已取消'
+            UPDATE reservation SET status = N'已取消'
             WHERE reservation_id = ? AND user_id = ?
             """,
             (reservation_id, user_id),
@@ -451,30 +449,29 @@ class Database:
         self.conn.commit()
 
     def get_next_pending_reservation(self, book_id: int):
-        return self.conn.execute(
+        return self._execute(
             """
-            SELECT * FROM reservation
-            WHERE book_id = ? AND status = '待处理'
+            SELECT TOP 1 * FROM reservation
+            WHERE book_id = ? AND status = N'待处理'
             ORDER BY reserve_date ASC
-            LIMIT 1
             """,
             (book_id,),
         ).fetchone()
 
     def mark_reservation_available(self, reservation_id: int):
-        self.conn.execute(
-            "UPDATE reservation SET status = '可借' WHERE reservation_id = ?",
+        self._execute(
+            "UPDATE reservation SET status = N'可借' WHERE reservation_id = ?",
             (reservation_id,),
         )
 
-    # ── Review ────────────────────────────────────────────────────────────
+    # -- Review -------------------------------------------------------
 
     def get_book_reviews(self, book_id: int):
-        return self.conn.execute(
+        return self._execute(
             """
             SELECT r.*, u.username
             FROM review r
-            JOIN user u ON r.user_id = u.user_id
+            JOIN [user] u ON r.user_id = u.user_id
             WHERE r.book_id = ?
             ORDER BY r.created_at DESC
             """,
@@ -482,7 +479,7 @@ class Database:
         ).fetchall()
 
     def user_has_reviewed(self, user_id: int, book_id: int):
-        return self.conn.execute(
+        return self._execute(
             "SELECT review_id FROM review WHERE user_id = ? AND book_id = ?",
             (user_id, book_id),
         ).fetchone()
@@ -491,24 +488,27 @@ class Database:
         self, user_id: int, book_id: int, rating: int, comment: str
     ) -> bool:
         try:
-            self.conn.execute(
+            self._execute(
                 """
-                INSERT INTO review (user_id, book_id, rating, comment)
+                INSERT INTO review (user_id, book_id, rating, [comment])
                 VALUES (?, ?, ?, ?)
                 """,
                 (user_id, book_id, rating, comment),
             )
             self.conn.commit()
             return True
-        except sqlite3.IntegrityError:
+        except pyodbc.IntegrityError:
             return False
 
 
-# ── Factory ────────────────────────────────────────────────────────────────
+# -- Factory ----------------------------------------------------------
 
-def create_connection(db_path: str) -> sqlite3.Connection:
-    """Create and configure a new SQLite connection."""
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+def create_connection() -> pyodbc.Connection:
+    """Create and configure a new pyodbc connection to SQL Server."""
+    conn_str = (
+        f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+        f'SERVER={DB_SERVER};'
+        f'DATABASE={DB_NAME};'
+        f'Trusted_Connection=yes;'
+    )
+    return pyodbc.connect(conn_str)

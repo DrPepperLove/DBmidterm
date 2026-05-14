@@ -15,13 +15,11 @@ app.secret_key = 'bookstore-secret-key-2024'
 
 # ── Database ────────────────────────────────────────────────────────────────
 
-DB = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bookstore.db')
-
 
 def get_db() -> Database:
     """Return the request-scoped Database instance."""
     if 'db' not in g:
-        conn = create_connection(DB)
+        conn = create_connection()
         g._db_conn = conn
         g.db = Database(conn)
     return g.db
@@ -415,7 +413,11 @@ def api_cancel_reservation(res_id):
 # ── Main ────────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    if not os.path.exists(DB):
-        print('Database not found. Run init_db.py first.')
-    else:
-        app.run(debug=True, port=5000)
+    try:
+        conn = create_connection()
+        conn.close()
+    except Exception as e:
+        print(f'Database connection failed: {e}')
+        print('Make sure SQL Server is running and run init_db.py first.')
+        exit(1)
+    app.run(debug=True, port=5000)
