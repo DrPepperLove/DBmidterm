@@ -42,7 +42,7 @@ def init_db():
         DROP TABLE IF EXISTS [user];
     """)
 
-    # ── Tables (based on a.sql) ───────────────────────────────────────
+    # ── Tables ───────────────────────────────────────
     cursor.execute("""
         CREATE TABLE [user] (
             user_id    INTEGER IDENTITY(1,1) NOT NULL,
