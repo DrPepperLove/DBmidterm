@@ -1,7 +1,4 @@
-"""Database abstraction layer for the Online Book Management System.
-
-Encapsulates all SQL Server operations behind a clean API, organized by domain entity.
-"""
+"""Database abstraction layer for the Online Book Management System."""
 
 from datetime import date, timedelta
 

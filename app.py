@@ -13,7 +13,7 @@ from db import Database, create_connection
 app = Flask(__name__)
 app.secret_key = 'bookstore-secret-key-2024'
 
-# ── Database ────────────────────────────────────────────────────────────────
+# Database
 
 
 def get_db() -> Database:
@@ -32,7 +32,7 @@ def close_db(exception):
         conn.close()
 
 
-# ── Auth helpers ────────────────────────────────────────────────────────────
+# Auth helpers
 
 def login_required(f):
     @wraps(f)
@@ -58,7 +58,7 @@ def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 
-# ── Helper ──────────────────────────────────────────────────────────────────
+# Helper
 
 def _error_status(msg: str, default: int = 400) -> int:
     """Map an error message to an HTTP status code."""
@@ -67,7 +67,7 @@ def _error_status(msg: str, default: int = 400) -> int:
     return default
 
 
-# ── Pages ───────────────────────────────────────────────────────────────────
+# Pages
 
 @app.route('/')
 def index():
@@ -115,7 +115,7 @@ def logout():
     return redirect(url_for('index'))
 
 
-# ── Book browsing ───────────────────────────────────────────────────────────
+# Book browsing
 
 @app.route('/books')
 def books_page():
@@ -161,7 +161,7 @@ def book_detail(book_id):
                            can_reserve=can_reserve, has_reserved=has_reserved)
 
 
-# ── Borrow / Return ─────────────────────────────────────────────────────────
+# Borrow / Return
 
 @app.route('/borrow/<int:book_id>', methods=['POST'])
 @login_required
@@ -191,7 +191,7 @@ def my_borrows():
     return render_template('my_borrows.html', records=records)
 
 
-# ── Reservation ─────────────────────────────────────────────────────────────
+# Reservation
 
 @app.route('/reserve/<int:book_id>', methods=['POST'])
 @login_required
@@ -220,7 +220,7 @@ def my_reservations():
     return render_template('my_reservations.html', reservations=reservations)
 
 
-# ── Reviews ─────────────────────────────────────────────────────────────────
+# Reviews
 
 @app.route('/review/<int:book_id>', methods=['POST'])
 @login_required
@@ -241,7 +241,7 @@ def add_review(book_id):
     return jsonify({'error': '您已评论过此书'}), 400
 
 
-# ── Admin ───────────────────────────────────────────────────────────────────
+# Admin
 
 @app.route('/admin')
 @admin_required
@@ -382,7 +382,7 @@ def admin_force_return(record_id):
     return redirect(url_for('admin_borrows'))
 
 
-# ── API endpoints for AJAX ──────────────────────────────────────────────────
+# API endpoints for AJAX 
 
 @app.route('/api/borrow/<int:book_id>', methods=['POST'])
 @login_required
@@ -410,7 +410,6 @@ def api_cancel_reservation(res_id):
     return jsonify({'message': '预约已取消'})
 
 
-# ── Main ────────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     try:
