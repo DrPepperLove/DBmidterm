@@ -69,7 +69,7 @@ class Database:
             "INSERT INTO [user] (username, password, email, role) VALUES (?,?,?,?)",
             (username, password_hash, email, role),
         )
-        self.conn.commit()
+        self.commit()
 
     def get_all_users(self):
         return self._execute(
@@ -77,10 +77,45 @@ class Database:
         ).fetchall()
 
     def delete_user(self, user_id: int):
-        self._execute(
-            "DELETE FROM [user] WHERE user_id = ? AND role != 'admin'", (user_id,)
-        )
-        self.conn.commit()
+        # 禁止删除管理员用户；删除前强制归还该用户所有未归还的借阅
+        user = self._execute(
+            "SELECT role FROM [user] WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        if not user:
+            raise Exception('用户不存在')
+        if user.get('role') == 'admin':
+            raise Exception('无法删除管理员用户')
+
+        try:
+            # 查找该用户所有状态为 "借出" 的借阅记录
+            active = self._execute(
+                "SELECT record_id, book_id FROM borrow_record WHERE user_id = ? AND status = N'借出'",
+                (user_id,),
+            ).fetchall()
+
+            for r in active:
+                # 标记为已还并更新时间
+                self._execute(
+                    "UPDATE borrow_record SET return_date = ?, status = N'已还' WHERE record_id = ?",
+                    (date.today().isoformat(), r['record_id']),
+                )
+                # 恢复图书可用数量
+                self._execute(
+                    "UPDATE book SET available_copies = available_copies + 1 WHERE book_id = ?",
+                    (r['book_id'],),
+                )
+
+            # 将该用户在引用表中的外键字段清空，避免删除时的外键约束
+            self._execute("UPDATE borrow_record SET user_id = NULL WHERE user_id = ?", (user_id,))
+            self._execute("UPDATE review SET user_id = NULL WHERE user_id = ?", (user_id,))
+            self._execute("UPDATE reservation SET user_id = NULL WHERE user_id = ?", (user_id,))
+
+            # 最后删除用户（已确保不是管理员）
+            self._execute("DELETE FROM [user] WHERE user_id = ?", (user_id,))
+            self.commit()
+        except Exception:
+            self.rollback()
+            raise
 
     def count_users(self) -> int:
         return self._execute("SELECT COUNT(*) AS cnt FROM [user]").fetchone()["cnt"]
@@ -97,20 +132,20 @@ class Database:
             "INSERT INTO category (name, description) VALUES (?, ?)",
             (name, description),
         )
-        self.conn.commit()
+        self.commit()
 
     def update_category(self, category_id: int, name: str, description: str):
         self._execute(
             "UPDATE category SET name=?, description=? WHERE category_id=?",
             (name, description, category_id),
         )
-        self.conn.commit()
+        self.commit()
 
     def delete_category(self, category_id: int):
         self._execute(
             "DELETE FROM category WHERE category_id = ?", (category_id,)
         )
-        self.conn.commit()
+        self.commit()
 
     def count_categories(self) -> int:
         return self._execute("SELECT COUNT(*) AS cnt FROM category").fetchone()["cnt"]
@@ -191,7 +226,7 @@ class Database:
                 total_copies, total_copies, description, category_id,
             ),
         )
-        self.conn.commit()
+        self.commit()
 
     def update_book(
         self,
@@ -213,11 +248,19 @@ class Database:
             (title, author, isbn, published_date, total_copies, description,
              category_id, book_id),
         )
-        self.conn.commit()
+        self.commit()
 
     def delete_book(self, book_id: int):
+        # 在删除前检查是否有未归还的借阅记录
+        active = self._execute(
+            "SELECT COUNT(*) AS cnt FROM borrow_record WHERE book_id = ? AND status = N'借出'",
+            (book_id,),
+        ).fetchone()
+        if active and active.get('cnt', 0) > 0:
+            raise Exception('图书当前有未归还的借阅记录，无法删除')
+
         self._execute("DELETE FROM book WHERE book_id = ?", (book_id,))
-        self.conn.commit()
+        self.commit()
 
     def count_books(self) -> int:
         return self._execute("SELECT COUNT(*) AS cnt FROM book").fetchone()["cnt"]
@@ -330,7 +373,7 @@ class Database:
                     "WHERE book_id = ?",
                     (book_id,),
                 )
-                self.conn.commit()
+                self.commit()
                 return True, "借阅成功", due_date.isoformat()
             else:
                 self.rollback()
@@ -364,7 +407,7 @@ class Database:
                 (record["book_id"],),
             )
 
-            self.conn.commit()
+            self.commit()
 
             # Check for pending reservation
             reservation = self.get_next_pending_reservation(record["book_id"])
@@ -372,7 +415,7 @@ class Database:
             msg = "归还成功"
             if reservation:
                 self.mark_reservation_available(reservation["reservation_id"])
-                self.conn.commit()
+                self.commit()
                 msg += "，已有预约用户可借阅此书"
 
             return True, msg
@@ -397,7 +440,7 @@ class Database:
                 "WHERE book_id = ?",
                 (record["book_id"],),
             )
-            self.conn.commit()
+            self.commit()
 
     # -- Reservation --------------------------------------------------
 
@@ -446,7 +489,7 @@ class Database:
             """,
             (user_id, book_id),
         )
-        self.conn.commit()
+        self.commit()
 
     def cancel_reservation(self, reservation_id: int, user_id: int):
         self._execute(
@@ -456,7 +499,7 @@ class Database:
             """,
             (reservation_id, user_id),
         )
-        self.conn.commit()
+        self.commit()
 
     def get_next_pending_reservation(self, book_id: int):
         return self._execute(
@@ -505,7 +548,7 @@ class Database:
                 """,
                 (user_id, book_id, rating, comment),
             )
-            self.conn.commit()
+            self.commit()
             return True
         except pyodbc.IntegrityError:
             return False

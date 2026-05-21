@@ -270,7 +270,10 @@ def admin_users():
 @admin_required
 def admin_delete_user(user_id):
     db = get_db()
-    db.delete_user(user_id)
+    try:
+        db.delete_user(user_id)
+    except Exception as e:
+        return str(e), 400
     return redirect(url_for('admin_users'))
 
 
@@ -322,7 +325,10 @@ def admin_edit_book(book_id):
 @admin_required
 def admin_delete_book(book_id):
     db = get_db()
-    db.delete_book(book_id)
+    try:
+        db.delete_book(book_id)
+    except Exception as e:
+        return str(e), 400
     return redirect(url_for('admin_books'))
 
 
