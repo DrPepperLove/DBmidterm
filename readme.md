@@ -181,6 +181,4 @@ COMMIT / ROLLBACK
 - 仅归还过该书的用户可评论（[app.py:233](app.py#L233)）
 - `UNIQUE(user_id, book_id)` 约束防止重复评论（[init_db.py:109](init_db.py#L109)）
 
-## 设计主题
 
-配色方案「墨香书院」采用白底 + 深红（#8B0012）为主色调，灵感来自传统书院匾额。字体使用 DM Serif Display（标题）+ Source Serif 4 / Noto Sans SC（正文），营造典雅的阅读氛围。
